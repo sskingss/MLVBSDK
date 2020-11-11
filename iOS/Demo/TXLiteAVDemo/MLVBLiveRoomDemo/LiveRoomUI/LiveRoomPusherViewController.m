@@ -85,6 +85,9 @@ typedef NS_ENUM(NSInteger, PKStatus) {
     
     [self initUI];
     [self initRoomLogic];
+    if (@available(iOS 13.0, *)) {
+        self.overrideUserInterfaceStyle = UIUserInterfaceStyleLight;
+    }
 }
 
 - (void)viewWillAppear:(BOOL)animated {
@@ -158,6 +161,14 @@ typedef NS_ENUM(NSInteger, PKStatus) {
     float startSpace = 30;
     float centerInterVal = (size.width - 2 * startSpace - ICON_SIZE) / 5;
     float iconY = size.height - ICON_SIZE / 2 - 10;
+    
+    if (@available(iOS 11, *)) {
+        iconY -= [UIApplication sharedApplication].keyWindow.safeAreaInsets.bottom;
+    }
+    
+    // 在控制按钮下方加入菜单容器视图，防止误触聚焦
+    UIView *buttonContainer = [[UIView alloc] initWithFrame:CGRectMake(0, iconY - ICON_SIZE / 2, self.view.frame.size.width, self.view.frame.size.height - (iconY - ICON_SIZE / 2))];
+    [self.view addSubview:buttonContainer];
     
     // 聊天
     _btnChat = [UIButton buttonWithType:UIButtonTypeCustom];
@@ -294,14 +305,19 @@ typedef NS_ENUM(NSInteger, PKStatus) {
     [self.view insertSubview:_pusherView atIndex:0];
     [_liveRoom startLocalPreview:YES view:_pusherView];
     
+    CGFloat bottomOffset = 0;
+    if (@available(iOS 11, *)) {
+        bottomOffset = UIApplication.sharedApplication.keyWindow.safeAreaInsets.bottom;
+    }
     // 美颜
-    NSUInteger controlHeight = [TCBeautyPanel getHeight];
+    NSUInteger controlHeight = [TCBeautyPanel getHeight] + bottomOffset;
+    
     _vBeauty =[TCBeautyPanel beautyPanelWithFrame:CGRectMake(0, self.view.frame.size.height - controlHeight, self.view.frame.size.width, controlHeight)
                                             SDKObject:_liveRoom];
     [ThemeConfigurator configBeautyPanelTheme:_vBeauty];
     _vBeauty.hidden = YES;
+    _vBeauty.bottomOffset = bottomOffset;
     [self.view addSubview:_vBeauty];
-
 
     // 美颜初始化为默认值
     [_vBeauty resetAndApplyValues];
@@ -398,6 +414,10 @@ typedef NS_ENUM(NSInteger, PKStatus) {
 // 切换摄像头
 - (void)clickCamera:(UIButton *)btn {
     _camera_switch = !_camera_switch;
+    btn.enabled = NO;
+    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(1.0 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+        btn.enabled = YES;
+    });
     if (_liveRoom) {
         [_liveRoom switchCamera];
     }
